@@ -1,0 +1,37 @@
+# Validation rule set for "Customer X" (Meridian Trading GmbH).
+# In Nova terms this file is the output of schema routing: the customer-specific
+# rule profile the validator applies. One YAML per customer; picked by customer_id.
+
+customer_id: customer_x
+customer_name: Meridian Trading GmbH
+
+# Every field listed here must be present and readable on the document.
+required_fields:
+  - consignee_name
+  - hs_code
+  - port_of_loading
+  - port_of_discharge
+  - incoterms
+  - goods_description
+  - gross_weight_kg
+  - invoice_number
+
+rules:
+  consignee_name:
+    expected: "Meridian Trading GmbH"
+    match: fuzzy          # minor casing/spacing/typo variants count as match, but note them
+  hs_code:
+    allowed_prefixes: ["8471"]   # Customer X imports automatic data-processing machines (HS heading 8471)
+    format: "####.##.## or ####.##"
+  port_of_loading:
+    expected_any: ["Nhava Sheva", "JNPT", "INNSA"]
+  port_of_discharge:
+    expected_any: ["Hamburg", "DEHAM"]
+  incoterms:
+    allowed: ["CIF", "FOB"]      # Incoterms 2020; named place should be the discharge port
+  goods_description:
+    must_mention_any: ["data processing", "laptop", "computer"]
+  gross_weight_kg:
+    max: 20000                   # single-container customer; anything above is a data error
+  invoice_number:
+    pattern: "INV-\\d{4}-\\d{4}"

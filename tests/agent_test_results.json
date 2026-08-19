@@ -1,0 +1,242 @@
+[
+  {
+    "doc": "commercial_invoice_clean.pdf",
+    "extraction": {
+      "doc_type": "commercial_invoice",
+      "fields": {
+        "consignee_name": {
+          "value": "Meridian Trading GmbH",
+          "confidence": 0.98,
+          "note": null
+        },
+        "hs_code": {
+          "value": "8471.30.00",
+          "confidence": 0.98,
+          "note": null
+        },
+        "port_of_loading": {
+          "value": "Nhava Sheva (JNPT), India \u2014 INNSA",
+          "confidence": 0.97,
+          "note": null
+        },
+        "port_of_discharge": {
+          "value": "Hamburg, Germany \u2014 DEHAM",
+          "confidence": 0.97,
+          "note": null
+        },
+        "incoterms": {
+          "value": "CIF Hamburg",
+          "confidence": 0.98,
+          "note": null
+        },
+        "goods_description": {
+          "value": "Portable automatic data processing machines (laptop computers, model OX-14), 400 units",
+          "confidence": 0.97,
+          "note": null
+        },
+        "gross_weight_kg": {
+          "value": "1240.00",
+          "confidence": 0.97,
+          "note": null
+        },
+        "invoice_number": {
+          "value": "INV-2024-0817",
+          "confidence": 0.98,
+          "note": null
+        }
+      },
+      "overall_quality": "clean",
+      "notes": null
+    },
+    "validation": {
+      "customer_id": "customer_x",
+      "checks": [
+        {
+          "field": "consignee_name",
+          "status": "match",
+          "found": "Meridian Trading GmbH",
+          "expected": "Meridian Trading GmbH (fuzzy match allowed)",
+          "reason": "The extracted value 'Meridian Trading GmbH' is an exact match to the expected consignee name."
+        },
+        {
+          "field": "hs_code",
+          "status": "match",
+          "found": "8471.30.00",
+          "expected": "Starts with 8471, format ####.##.## or ####.##",
+          "reason": "The HS code '8471.30.00' starts with the required prefix 8471 and follows the ####.##.## format."
+        },
+        {
+          "field": "port_of_loading",
+          "status": "match",
+          "found": "Nhava Sheva (JNPT), India \u2014 INNSA",
+          "expected": "One of Nhava Sheva, JNPT, INNSA",
+          "reason": "The found value explicitly contains 'Nhava Sheva', 'JNPT', and 'INNSA', satisfying the expected_any rule."
+        },
+        {
+          "field": "port_of_discharge",
+          "status": "match",
+          "found": "Hamburg, Germany \u2014 DEHAM",
+          "expected": "One of Hamburg, DEHAM",
+          "reason": "The found value contains both 'Hamburg' and 'DEHAM', satisfying the expected_any rule."
+        },
+        {
+          "field": "incoterms",
+          "status": "match",
+          "found": "CIF Hamburg",
+          "expected": "One of CIF, FOB",
+          "reason": "The found value 'CIF Hamburg' includes the allowed term 'CIF', with 'Hamburg' as the named place, so it satisfies the allowed incoterms list."
+        },
+        {
+          "field": "goods_description",
+          "status": "match",
+          "found": "Portable automatic data processing machines (laptop computers, model OX-14), 400 units",
+          "expected": "Must mention any of: data processing, laptop, computer",
+          "reason": "The description mentions both 'data processing' and 'laptop computers', satisfying the must_mention_any rule."
+        },
+        {
+          "field": "gross_weight_kg",
+          "status": "match",
+          "found": "1240.00",
+          "expected": "Max 20000 kg",
+          "reason": "The gross weight of 1240.00 kg is well under the maximum allowed 20000 kg."
+        },
+        {
+          "field": "invoice_number",
+          "status": "match",
+          "found": "INV-2024-0817",
+          "expected": "Pattern INV-\\d{4}-\\d{4}",
+          "reason": "The invoice number 'INV-2024-0817' matches the required pattern of INV- followed by four digits, a hyphen, and four digits."
+        }
+      ],
+      "summary": "All 8 required fields for customer_x (Meridian Trading GmbH) were validated against the rule set and all passed: consignee name matches exactly, HS code has the correct prefix and format, both ports contain the expected location codes/names, incoterms is CIF (an allowed value), the goods description mentions qualifying keywords, gross weight (1240.00 kg) is well within the 20000 kg limit, and the invoice number matches the required regex pattern."
+    },
+    "decision": {
+      "decision": "auto_approve",
+      "reasoning": "All 8 required fields for customer_x passed validation with no mismatches or uncertainties. Key checks: consignee_name exactly matches 'Meridian Trading GmbH'; hs_code '8471.30.00' meets the 8471-prefix/format rule; port_of_loading and port_of_discharge both contain the required location identifiers (JNPT/INNSA and Hamburg/DEHAM respectively); incoterms 'CIF Hamburg' satisfies the allowed CIF/FOB list; goods_description contains qualifying keywords ('data processing', 'laptop computers'); gross_weight_kg (1240.00) is well under the 20000 kg cap; and invoice_number matches the required regex pattern. Status counts confirm 8 match / 0 mismatch / 0 uncertain.",
+      "discrepancies": [],
+      "confidence": 0.98
+    }
+  },
+  {
+    "doc": "commercial_invoice_messy.png",
+    "extraction": {
+      "doc_type": "commercial_invoice",
+      "fields": {
+        "consignee_name": {
+          "value": "MERIDIAN TRADING GmBH, SPEICHERSTADT 22, HAMBURG",
+          "confidence": 0.95,
+          "note": null
+        },
+        "hs_code": {
+          "value": null,
+          "confidence": 0.3,
+          "note": "HS code is largely obscured by a dark smudge/redaction mark on the document; only partial characters '84**.3' are visible, remainder illegible."
+        },
+        "port_of_loading": {
+          "value": "NHAVA SHEVA (INNSA), INDIA",
+          "confidence": 0.95,
+          "note": null
+        },
+        "port_of_discharge": {
+          "value": "ROTTERDAM (NLRTM), NETHERLANDS",
+          "confidence": 0.95,
+          "note": null
+        },
+        "incoterms": {
+          "value": null,
+          "confidence": 0.1,
+          "note": "No Incoterms field is printed anywhere on this invoice."
+        },
+        "goods_description": {
+          "value": "PORTABLE DATA PROCESSING MACHINES (LAPTOP COMPUTERS) 380 UNITS",
+          "confidence": 0.93,
+          "note": null
+        },
+        "gross_weight_kg": {
+          "value": "1178.00",
+          "confidence": 0.92,
+          "note": "Printed as '1,178.00 KG'; comma thousand-separator removed for numeric value."
+        },
+        "invoice_number": {
+          "value": "INV-2024-0912",
+          "confidence": 0.97,
+          "note": null
+        }
+      },
+      "overall_quality": "degraded",
+      "notes": "Document is a commercial invoice from ORIENT EXPORTS PVT LTD dated 02 SEPT 2024. Overall text is clean and legible, but the HS Code field is intentionally or accidentally obscured by a dark smudge, leaving only partial digits visible. Total value (USD 146,300.00) and Origin (INDIA) were also visible but are not part of the requested schema fields."
+    },
+    "validation": {
+      "customer_id": "customer_x",
+      "checks": [
+        {
+          "field": "consignee_name",
+          "status": "match",
+          "found": "MERIDIAN TRADING GmBH, SPEICHERSTADT 22, HAMBURG",
+          "expected": "Meridian Trading GmbH (fuzzy match allowed)",
+          "reason": "The extracted name 'MERIDIAN TRADING GmBH' matches the expected 'Meridian Trading GmbH' aside from trivial casing differences and an appended address, which is acceptable under fuzzy matching."
+        },
+        {
+          "field": "hs_code",
+          "status": "uncertain",
+          "found": null,
+          "expected": "HS code starting with 8471, format ####.##.## or ####.##",
+          "reason": "The HS code is obscured by a smudge with only partial characters '84**.3' visible, so it cannot be confirmed whether it starts with the required prefix 8471 or matches the expected format."
+        },
+        {
+          "field": "port_of_loading",
+          "status": "match",
+          "found": "NHAVA SHEVA (INNSA), INDIA",
+          "expected": "One of: Nhava Sheva, JNPT, INNSA",
+          "reason": "The found value explicitly contains both 'NHAVA SHEVA' and 'INNSA', satisfying the expected_any list."
+        },
+        {
+          "field": "port_of_discharge",
+          "status": "mismatch",
+          "found": "ROTTERDAM (NLRTM), NETHERLANDS",
+          "expected": "One of: Hamburg, DEHAM",
+          "reason": "The found port of discharge is Rotterdam, Netherlands, which does not match either 'Hamburg' or 'DEHAM' as required."
+        },
+        {
+          "field": "incoterms",
+          "status": "uncertain",
+          "found": null,
+          "expected": "One of: CIF, FOB",
+          "reason": "No Incoterms value is present in the document at all, so it cannot be determined whether the shipment complies with the allowed CIF/FOB terms."
+        },
+        {
+          "field": "goods_description",
+          "status": "match",
+          "found": "PORTABLE DATA PROCESSING MACHINES (LAPTOP COMPUTERS) 380 UNITS",
+          "expected": "Must mention any of: data processing, laptop, computer",
+          "reason": "The description explicitly contains both 'DATA PROCESSING' and 'LAPTOP', satisfying the must_mention_any requirement."
+        },
+        {
+          "field": "gross_weight_kg",
+          "status": "match",
+          "found": "1178.00",
+          "expected": "Gross weight must not exceed 20000 kg",
+          "reason": "The extracted gross weight of 1178.00 kg is well under the 20000 kg maximum limit."
+        },
+        {
+          "field": "invoice_number",
+          "status": "match",
+          "found": "INV-2024-0912",
+          "expected": "Pattern INV-\\d{4}-\\d{4}",
+          "reason": "The invoice number 'INV-2024-0912' conforms exactly to the required pattern of INV- followed by four digits, a hyphen, and four digits."
+        }
+      ],
+      "summary": "Of 8 required fields, 5 are clear matches (consignee_name via fuzzy match, port_of_loading, goods_description, gross_weight_kg, invoice_number), 1 is a clear mismatch (port_of_discharge is Rotterdam instead of Hamburg/DEHAM), and 2 are uncertain due to missing/obscured data (hs_code is smudged and unreadable, incoterms is entirely absent from the document)."
+    },
+    "decision": {
+      "decision": "amendment_request",
+      "reasoning": "The port_of_discharge field is a clear mismatch: found value is 'ROTTERDAM (NLRTM), NETHERLANDS' but the customer rule requires one of 'Hamburg, DEHAM'. This is a definitive, unambiguous discrepancy against the customer's rules, which triggers an amendment request regardless of the other uncertain fields. Additionally, hs_code is unreadable (only partial '84**.3' visible against a required 8471-prefixed code) and incoterms is entirely missing (required CIF or FOB), both of which must also be resolved by the supplier as part of the corrected documentation.",
+      "discrepancies": [
+        "Port of discharge shows 'Rotterdam (NLRTM), Netherlands' but the order requires Hamburg (DEHAM) \u2014 please reissue the invoice with the correct discharge port.",
+        "HS code is smudged/illegible (only partial digits '84**.3' visible); please provide a clear, legible HS code confirmed to start with 8471 in the format ####.##.## or ####.##.",
+        "Incoterms field is missing from the document; please add the applicable Incoterm (CIF or FOB) as required by the purchase terms."
+      ],
+      "confidence": 0.9
+    }
+  }
+]
