@@ -1,0 +1,9 @@
+claude-agent-sdk>=0.2.140
+langgraph>=1.2
+fastapi>=0.141
+uvicorn[standard]>=0.52
+pydantic>=2.13
+reportlab>=5.0
+pyyaml>=6.0
+pillow>=12.0
+python-multipart>=0.0.20
