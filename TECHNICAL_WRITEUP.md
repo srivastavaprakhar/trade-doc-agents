@@ -41,7 +41,7 @@ set (out-of-set choices are overridden in code and the override recorded).
 
 ## The 3 nastiest failure modes I hit (real, from this build's test runs)
 
-**1. Token usage silently under-reported ~99% — the cost telemetry lied.**
+**1. Token usage silently under-reported by about 99%: the cost telemetry lied.**
 First vision extraction returned `usage.input_tokens = 4` for a call that cost
 $0.22. The Agent SDK (like the underlying API) buckets prompt-cache traffic into
 `cache_creation_input_tokens` / `cache_read_input_tokens`, and nearly the entire
@@ -55,10 +55,10 @@ the money number (`total_cost_usd`), not against whether it "looks plausible".
 failure, and the SDK reports it as an *error result*, not a bad answer.**
 Rerunning the extractor with `max_turns=1` (my first instinct, per "1 unless a
 step genuinely needs multiple turns"): the agent spends its only turn calling
-`Read` and the run dies with `ResultError: Reached maximum number of turns (1)`
-— on every retry, burning 2 paid attempts and ~6s before failing. The guard
+`Read` and the run dies with `ResultError: Reached maximum number of turns (1)`,
+on every retry, burning 2 paid attempts and ~6s before failing. The guard
 rails caught it (loud `AgentCallError`, no hang), but the failure is systematic,
-not transient — retries can never fix it, so the retry budget is pure waste.
+not transient. Retries can never fix it, so the retry budget is pure waste.
 Fix: extractor gets `max_turns=4` (read + possible second page + answer);
 tool-less agents keep 1. Generalizable lesson: distinguish *deterministic* from
 *transient* errors before retrying; in production this error class should skip
@@ -71,12 +71,12 @@ formatting. Harmless-looking, but it breaks the validator's contract: fuzzy name
 match now depends on the validator ignoring an address the extractor had no
 business including, and it double-counts evidence ("Hamburg" appears in the
 consignee string while the *port* says Rotterdam). This is the LLM-pipeline
-version of parsing with side effects — each stage quietly doing part of the next
+version of parsing with side effects: each stage quietly doing part of the next
 stage's job. Containment: prompt contract pinning transcription semantics
 ("values are transcribed, not normalized"; weight as the numeric kg value),
 notes for anything transformed, and the validator's fuzzy rules doing
-tolerance *explicitly* in one place. Nastiest property: it's nondeterministic —
-across four stored runs of the same-shipment docs, consignee came back bare
+tolerance *explicitly* in one place. Nastiest property: it's nondeterministic.
+Across four stored runs of the same-shipment docs, consignee came back bare
 ("Meridian Trading GmbH") in two, with city appended in one (run f6439c3a5e12),
 and with the full street address in one test capture
 (tests/agent_test_results.json). The validator handles each and says so in its
@@ -99,10 +99,10 @@ swap in:
 - **Langfuse + OpenTelemetry** for tracing: each run becomes a trace, each agent
   call a span with prompt/completion/usage attached; `run_id` becomes the trace
   ID. Gets you p95 latency per agent per tenant, cost dashboards, prompt-version
-  diffing, and replayable failures — my JSONL gives grep, not aggregation.
+  diffing, and replayable failures. My JSONL gives grep, not aggregation.
 - **ClickHouse** for the data layer: the four tables keep their shape but become
   tenant-keyed, columnar, and able to answer "field-failure rates by customer by
-  week" across millions of rows — SQLite's ceiling.
+  week" across millions of rows, which is SQLite's ceiling.
 - **OpenFGA** for authorization: every row already carries `customer_id`; OpenFGA
   makes tenant isolation a checked policy (who can run pipelines, read runs, or
   edit rule sets per tenant) instead of a WHERE clause convention. The NL→SQL
@@ -114,8 +114,8 @@ swap in:
   `CallBudget` guard become gateway policy. The POC's token logs map 1:1 onto
   real invoices.
 - **Alerting on the governance signals this POC already emits**: policy-guard
-  override rate, forced-uncertain rate, retry/budget-cap hits, resume frequency —
-  drift in any of these is the early warning that extraction quality or a
+  override rate, forced-uncertain rate, retry/budget-cap hits, resume frequency.
+  Drift in any of these is the early warning that extraction quality or a
   customer's document mix changed.
 
 ## Cost per document (measured) and where it blows up
@@ -145,21 +145,22 @@ NL query: ~$0.03–0.05 (two small calls). Where it blows up:
    is why `overall_quality` is in the schema.
 4. **The NL layer as a BI tool.** If ops teams start dashboarding through it,
    every refresh is 2 LLM calls. Fix: cache question→SQL templates; the SQL is
-   deterministic and reusable — only the answer phrasing needs a model, and even
+   deterministic and reusable. Only the answer phrasing needs a model, and even
    that can be a template for known queries.
 
 ## Latency bottleneck and fix
 
 End-to-end 28–40s. Surprise: the **validator** (14.3s avg) beats extraction
-(10.7s) as the single slowest stage — it writes long per-field `reason` prose
-(1,665 output tokens; output tokens dominate generation time). Fixes in order of
-leverage: (1) cut validator verbosity — reasons only for non-match fields,
-one-liners for matches: ~2–3× stage speedup for free; (2) the three stages are
-sequential by necessity, but *documents* are embarrassingly parallel — throughput
-is solved by concurrent runs, not per-run latency; (3) per-call SDK subprocess
-spin-up costs ~1–2s × 3 calls — a persistent client (`ClaudeSDKClient`) or raw
-API in production removes it; (4) streaming the router's reasoning to the UI
-cuts *perceived* latency for the human-in-the-loop case.
+(10.7s) as the single slowest stage. It writes long per-field `reason` prose
+(1,665 output tokens; output tokens dominate generation time). Fixes in order
+of leverage: (1) cut validator verbosity, reasons only for non-match fields
+and one-liners for matches, roughly a 2–3× stage speedup for free; (2) the
+three stages are sequential by necessity, but *documents* are embarrassingly
+parallel, so throughput is solved by concurrent runs, not per-run latency;
+(3) per-call SDK subprocess spin-up costs ~1–2s × 3 calls, and a persistent
+client (`ClaudeSDKClient`) or raw API in production removes it; (4) streaming
+the router's reasoning to the UI cuts *perceived* latency for the
+human-in-the-loop case.
 
 ## What I'd do differently with a week instead of a day
 

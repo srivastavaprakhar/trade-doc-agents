@@ -78,17 +78,18 @@ cost without adding an outcome, and the whole premise falls apart.
 
 ## 2. Problem statement
 
-Every ocean/air shipment produces a document stack — Bill of Lading, Commercial
-Invoice, Packing List, Certificate of Origin — issued by different parties as
+Every ocean/air shipment produces a document stack (Bill of Lading, Commercial
+Invoice, Packing List, Certificate of Origin), issued by different parties as
 PDFs and scans of wildly varying quality. Today a human reads every field of
 every document and validates it against customer-specific expectations that
 mostly live in operators' heads.
 
 Specific failure modes in the manual flow:
 
-- **Late discovery.** A wrong discharge port or HS code is caught at customs or
-  at the carrier, not at document receipt — when fixing it costs demurrage,
-  storage, re-filing fees, and days of delay instead of one amendment email.
+- **Late discovery.** A wrong discharge port or HS code usually gets caught at
+  customs or at the carrier, not at document receipt. By then, fixing it costs
+  demurrage, storage, re-filing fees, and days of delay instead of one
+  amendment email.
 - **Silent guessing.** Under time pressure, a smudged HS code gets typed in as a
   "best guess". Nobody records that it was a guess, so downstream systems treat
   it as fact.
@@ -151,7 +152,7 @@ JTBD:
 
 One mega-agent ("read this PDF and tell me approve/reject") conflates three
 different failure domains, and when it's wrong you can't tell whether extraction,
-rule interpretation, or judgment failed — which kills both debuggability and the
+rule interpretation, or judgment failed. That kills both debuggability and the
 audit story. Splitting also lets each stage run with the *minimum* capability it
 needs: the extractor is the only agent with any tool access (`Read`, nothing
 else); the validator and router run tool-less with `max_turns=1`, so their attack
@@ -161,7 +162,7 @@ Five agents (e.g., separate doc-classifier, per-field confidence scorer, or a
 distinct amendment-drafter) is where I drew the line the other way: doc-type
 classification falls out of extraction for free; confidence scoring belongs
 *inside* extraction (the model knows what it could read while looking at the
-pixels — a downstream agent would be guessing); amendment drafting is one field
+pixels; a downstream agent would just be guessing); amendment drafting is one field
 of the router's output, not a stage. Each extra hop is +5–15s latency, +$0.02–0.04,
 and one more schema boundary to break. Three agents = one per failure domain:
 **perception** (what does the document say?), **judgment against rules** (is it
@@ -187,9 +188,9 @@ no raw text is ever passed between agents. The shared `PipelineState` carries
 - **Plan + execute** ≈ the LangGraph graph itself.
 - **Evidence delivery** ≈ the router's stored reasoning + per-field found-vs-expected trail, rendered in the UI and queryable in SQL.
 
-The two ends of the mapping (scope resolution, and "plan" as a distinct step —
-this graph's plan is static) are the forced fits, and I'd rather say so than
-pretend a three-node DAG is a planner.
+The two ends of the mapping (scope resolution, and "plan" as a distinct step,
+since this graph's plan is static) are the forced fits, and I'd rather say so
+than pretend a three-node DAG is a planner.
 
 ### How state survives a crash
 
@@ -205,15 +206,15 @@ re-paid LLM call), completed validate+route, and the run finished `completed`.
 
 - **Claude Agent SDK over the raw `anthropic` SDK.** Chosen to run the whole POC
   on a subscription **Claude Code OAuth token** (`claude setup-token` →
-  `CLAUDE_CODE_OAUTH_TOKEN`) — zero marginal API spend for a personal build, and
-  the SDK's `Read` tool gives PDF/image ingestion for free. Cost of the choice:
-  it's an agent harness, not a bare completion endpoint, so determinism had to be
-  imposed — tools stripped to none (except the extractor's `Read`), `max_turns`
-  capped, `setting_sources=[]` so local Claude config can't leak in, and native
-  `output_format` JSON-schema constraining every response, re-validated by
-  Pydantic. Notable: the brief anticipated the tool-loop fighting structured
-  output; with the SDK's native structured output it never did — no agent needed
-  a workaround. **Scope note:** a personal OAuth token is legitimate for a
+  `CLAUDE_CODE_OAUTH_TOKEN`), for zero marginal API spend on a personal build,
+  and the SDK's `Read` tool gives PDF/image ingestion for free. Cost of the
+  choice: it's an agent harness, not a bare completion endpoint, so determinism
+  had to be imposed. Tools were stripped to none except the extractor's `Read`,
+  `max_turns` capped, `setting_sources=[]` so local Claude config can't leak
+  in, and native `output_format` JSON-schema constraining every response,
+  re-validated by Pydantic. Notable: the brief anticipated the tool-loop
+  fighting structured output; with the SDK's native structured output it never
+  did. No agent needed a workaround. **Scope note:** a personal OAuth token is legitimate for a
   personal local build, but not for a hosted multi-client product; production
   moves to metered API keys / enterprise billing (LiteLLM-style routing +
   budgets), at which point the token/cost telemetry this POC already logs
@@ -229,7 +230,7 @@ re-paid LLM call), completed validate+route, and the run finished `completed`.
   production option this POC skips: a dedicated OCR/DPT-2-style pass feeding text
   alongside the image.
 - **LangGraph** for orchestration: the graph is three nodes and could be three
-  `await`s — but the explicit `StateGraph` gives typed state flow, conditional
+  `await`s. But the explicit `StateGraph` gives typed state flow, conditional
   failure edges, and the same mental model as Nova's production Agents
   Orchestrator, which is the point of the exercise. Overhead measured: negligible
   vs. the LLM calls.
@@ -237,7 +238,7 @@ re-paid LLM call), completed validate+route, and the run finished `completed`.
   schema-constrained. **Avoided**: nowhere — the only free text in the system is
   *inside* schema fields explicitly meant for humans (reasons, reasoning,
   answer), which is where LLM prose belongs.
-- **SQLite over ClickHouse**: one tenant, hundreds of rows, zero setup — SQLite
+- **SQLite over ClickHouse**: one tenant, hundreds of rows, zero setup. SQLite
   is honest for a laptop demo. The schema (runs / agent_steps / extracted_fields
   / field_checks) is deliberately the shape you'd land in ClickHouse when
   multi-tenant analytical volume justifies it. **Structured JSONL logs +
@@ -251,13 +252,13 @@ re-paid LLM call), completed validate+route, and the run finished `completed`.
 ## 6. Trust & failure handling
 
 - **Hallucination prevention:** extraction values must be transcriptions (prompt
-  contract: null + low confidence + note when unreadable — observed working: the
-  smudged HS code came back `null`/0.20 with "digits obscured by smudge", not an
-  invented `8471.xx`). Validator/router only see structured upstream output, and
+  contract: null, low confidence, and a note when unreadable. Observed
+  working: the smudged HS code came back `null`/0.20 with "digits obscured by
+  smudge," not an invented `8471.xx`). Validator/router only see structured upstream output, and
   their prose must cite found-vs-expected values. NL answers are generated from
   executed SQL rows included in the prompt, with the SQL exposed in the UI for
   audit.
-- **Low-confidence handling:** a code-enforced 0.70 floor — below it a field
+- **Low-confidence handling:** a code-enforced 0.70 floor. Below it a field
   cannot be `match` regardless of what the validator model says; the demotion is
   appended to the check's reason so the override itself is auditable.
 - **Loop/cost guards:** ≤2 attempts per agent, 180s per-call timeout, hard 8-call
@@ -271,16 +272,17 @@ re-paid LLM call), completed validate+route, and the run finished `completed`.
   every prompt/model/rule change replays it and reports field-level extraction
   accuracy, calibration (confidence vs. correctness), and decision agreement.
   The three sample docs in this repo are the seed of exactly that set.
-- **One online metric I'd actually run:** human override rate on routed decisions
-  — how often an operator reverses an auto-approve (critical, should be ~0) or
+- **One online metric I'd actually run:** human override rate on routed
+  decisions: how often an operator reverses an auto-approve (critical, should
+  be ~0) or
   releases a flagged doc without changes (noise, target <20%). It directly
   measures whether the routing is trustworthy, and it generates labeled training
   data as a side effect.
 
 ## 7. Metrics
 
-**North star: touchless-and-correct rate** — % of documents that flow
-extract→validate→route→auto-approve with no human touch *and* no subsequent
+**North star: touchless-and-correct rate.** The percentage of documents that
+flow extract→validate→route→auto-approve with no human touch and no subsequent
 override/escape. (Touchless alone incentivizes reckless approval; the "correct"
 clause keeps it honest.)
 
@@ -305,8 +307,8 @@ false-approves on fields the customer calls critical (HS code, ports, consignee)
 ## 8. Next 2 weeks
 
 1. **Multi-document reconciliation** (highest value): validate the invoice
-   *against* the B/L and packing list for the same shipment — cross-doc weight,
-   HS, consignee mismatches are where the expensive errors live. The state
+   *against* the B/L and packing list for the same shipment. Cross-doc weight,
+   HS, and consignee mismatches are where the expensive errors live. The state
    schema already keys by shipment-able fields (invoice_number).
 2. **Golden-set eval harness in CI** (§6) — nothing else can be changed safely
    without it.
@@ -319,6 +321,6 @@ false-approves on fields the customer calls critical (HS code, ports, consignee)
    trace-shaped), ClickHouse behind the same table shapes when volume demands
    it, OpenFGA-style tenant scoping on every row and every rule-set read, and
    metered API billing with LiteLLM-style routing replacing the personal OAuth
-   token — the POC's per-agent token logs become real cost dashboards on day one.
+   token. The POC's per-agent token logs become real cost dashboards on day one.
 6. **Confidence-driven model escalation** (auto re-extract `degraded` docs on a
    stronger model) — cheap to add, directly lifts the north star.
