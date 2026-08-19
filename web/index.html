@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trade Document Agents</title>
+<style>
+  :root {
+    --bg:#0f1319; --panel:#171d26; --panel2:#1d2531; --line:#2a3444;
+    --text:#dce4ee; --dim:#8b98a9; --accent:#5aa9e6;
+    --ok:#3fb68b; --warn:#e6b455; --bad:#e0685f;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text);
+         font:14px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding:14px 22px; border-bottom:1px solid var(--line); display:flex; align-items:baseline; gap:12px; }
+  header h1 { font-size:16px; margin:0; }
+  header span { color:var(--dim); font-size:12px; }
+  main { display:grid; grid-template-columns:290px 1fr; gap:18px; padding:18px 22px; max-width:1400px; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:14px; margin-bottom:16px; }
+  .panel h2 { font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--dim); margin:0 0 10px; }
+  select,input[type=text],button { font:inherit; color:var(--text); background:var(--panel2);
+    border:1px solid var(--line); border-radius:6px; padding:8px 10px; width:100%; }
+  button { cursor:pointer; background:var(--accent); color:#0b1016; font-weight:600; border:none; margin-top:8px; }
+  button:disabled { opacity:.5; cursor:wait; }
+  button.ghost { background:var(--panel2); color:var(--text); border:1px solid var(--line); font-weight:400; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th,td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--dim); font-weight:500; font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
+  .conf { display:inline-block; min-width:46px; text-align:center; border-radius:4px; padding:1px 6px; font-size:12px; }
+  .conf.hi { background:rgba(63,182,139,.15); color:var(--ok); }
+  .conf.mid { background:rgba(230,180,85,.15); color:var(--warn); }
+  .conf.lo { background:rgba(224,104,95,.18); color:var(--bad); }
+  .st { font-weight:600; }
+  .st.match { color:var(--ok); } .st.mismatch { color:var(--bad); } .st.uncertain { color:var(--warn); }
+  .decision-card { border-left:4px solid var(--accent); }
+  .decision-card.auto_approve { border-color:var(--ok); }
+  .decision-card.human_review { border-color:var(--warn); }
+  .decision-card.amendment_request { border-color:var(--bad); }
+  .decision-label { font-size:17px; font-weight:700; }
+  .decision-label.auto_approve { color:var(--ok); }
+  .decision-label.human_review { color:var(--warn); }
+  .decision-label.amendment_request { color:var(--bad); }
+  .runrow { padding:7px 8px; border-radius:6px; cursor:pointer; display:flex; justify-content:space-between; gap:6px; font-size:12.5px; }
+  .runrow:hover, .runrow.active { background:var(--panel2); }
+  .badge { font-size:10.5px; padding:1px 7px; border-radius:9px; white-space:nowrap; align-self:center; }
+  .badge.auto_approve { background:rgba(63,182,139,.15); color:var(--ok); }
+  .badge.human_review { background:rgba(230,180,85,.15); color:var(--warn); }
+  .badge.amendment_request { background:rgba(224,104,95,.18); color:var(--bad); }
+  .badge.failed,.badge.running { background:var(--panel2); color:var(--dim); }
+  .dim { color:var(--dim); } .mono { font-family:ui-monospace,Menlo,monospace; font-size:12px; }
+  #status { font-size:12.5px; color:var(--warn); min-height:18px; margin-top:8px; }
+  .spin { display:inline-block; width:11px; height:11px; border:2px solid var(--warn); border-top-color:transparent;
+          border-radius:50%; animation:r 0.8s linear infinite; vertical-align:-1px; margin-right:6px; }
+  @keyframes r { to { transform:rotate(360deg); } }
+  #answer { white-space:pre-wrap; }
+  details { margin-top:8px; } summary { color:var(--dim); cursor:pointer; font-size:12px; }
+  ul { margin:6px 0 0; padding-left:20px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Trade Document Agents</h1>
+  <span>extract → validate → route · every decision evidence-grounded &amp; stored</span>
+</header>
+<main>
+  <div><!-- left column -->
+    <div class="panel">
+      <h2>Run a document</h2>
+      <select id="docSelect"></select>
+      <button id="runBtn" onclick="runDoc()">Run pipeline</button>
+      <div id="status"></div>
+    </div>
+    <div class="panel">
+      <h2>Past runs</h2>
+      <div id="runsList" class="dim">loading…</div>
+    </div>
+  </div>
+
+  <div><!-- main column -->
+    <div class="panel decision-card" id="decisionPanel" style="display:none">
+      <h2>Router decision <span class="dim" id="decMeta"></span></h2>
+      <div class="decision-label" id="decLabel"></div>
+      <p id="decReasoning"></p>
+      <div id="decDiscrepancies"></div>
+    </div>
+
+    <div class="panel" id="extractionPanel" style="display:none">
+      <h2>Extraction <span class="dim" id="extMeta"></span></h2>
+      <table><thead><tr><th>Field</th><th>Value</th><th>Confidence</th><th>Validation</th><th>Detail</th></tr></thead>
+      <tbody id="fieldsBody"></tbody></table>
+    </div>
+
+    <div class="panel" id="stepsPanel" style="display:none">
+      <h2>Agent telemetry</h2>
+      <table><thead><tr><th>Agent</th><th>Status</th><th>Attempts</th><th>Latency</th><th>Tokens in/out</th><th>Est. cost</th></tr></thead>
+      <tbody id="stepsBody"></tbody></table>
+    </div>
+
+    <div class="panel">
+      <h2>Ask the pipeline database</h2>
+      <input type="text" id="qInput" placeholder='e.g. "How many shipments were flagged this week?"'
+             onkeydown="if(event.key==='Enter')ask()">
+      <button class="ghost" onclick="ask()" id="askBtn">Ask</button>
+      <p id="answer"></p>
+      <details id="sqlDetails" style="display:none"><summary>SQL + rows (evidence)</summary>
+        <p class="mono" id="sqlText"></p><pre class="mono dim" id="rowsText" style="overflow-x:auto"></pre>
+      </details>
+    </div>
+  </div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const DECISION_TEXT = { auto_approve:'AUTO-APPROVE', human_review:'FLAG FOR HUMAN REVIEW', amendment_request:'DRAFT AMENDMENT REQUEST' };
+
+async function api(path, opts) {
+  const r = await fetch(path, opts);
+  if (!r.ok) throw new Error((await r.json()).detail || r.statusText);
+  return r.json();
+}
+
+async function loadDocs() {
+  const d = await api('/api/documents');
+  $('docSelect').innerHTML = d.documents.map(x => `<option>${x}</option>`).join('');
+}
+
+async function loadRuns(activeId) {
+  const d = await api('/api/runs');
+  $('runsList').innerHTML = d.runs.map(r => `
+    <div class="runrow ${r.run_id===activeId?'active':''}" onclick="showRun('${r.run_id}')">
+      <span>${r.doc_name}<br><span class="dim mono">${r.run_id} · ${r.created_at}</span></span>
+      <span class="badge ${r.decision||r.status}">${r.decision||r.status}</span>
+    </div>`).join('') || '<span class="dim">none yet</span>';
+}
+
+async function runDoc() {
+  $('runBtn').disabled = true;
+  $('status').innerHTML = '<span class="spin"></span>running extract → validate → route (typically 30–60s)…';
+  try {
+    const rec = await api('/api/run', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ doc_name: $('docSelect').value }) });
+    $('status').textContent = '';
+    render(rec); loadRuns(rec.run.run_id);
+  } catch (e) { $('status').textContent = 'error: ' + e.message; }
+  $('runBtn').disabled = false;
+}
+
+async function showRun(id) { render(await api('/api/runs/' + id)); loadRuns(id); }
+
+function confClass(c) { return c >= 0.9 ? 'hi' : c >= 0.7 ? 'mid' : 'lo'; }
+
+function render(rec) {
+  const ex = rec.extraction, val = rec.validation, dec = rec.decision;
+  const checks = {}; (val?.checks || []).forEach(c => checks[c.field] = c);
+
+  if (dec) {
+    $('decisionPanel').style.display = ''; $('decisionPanel').className = 'panel decision-card ' + dec.decision;
+    $('decLabel').className = 'decision-label ' + dec.decision;
+    $('decLabel').textContent = DECISION_TEXT[dec.decision] || dec.decision;
+    $('decMeta').textContent = `· run ${rec.run.run_id} · decision confidence ${(dec.confidence*100).toFixed(0)}%`;
+    $('decReasoning').textContent = dec.reasoning;
+    $('decDiscrepancies').innerHTML = dec.discrepancies.length
+      ? '<strong class="dim">Amendment items:</strong><ul>' + dec.discrepancies.map(d=>`<li>${d}</li>`).join('') + '</ul>' : '';
+  } else { $('decisionPanel').style.display = 'none'; }
+
+  if (ex) {
+    $('extractionPanel').style.display = '';
+    $('extMeta').textContent = `· ${ex.doc_type} · quality: ${ex.overall_quality}`;
+    $('fieldsBody').innerHTML = Object.entries(ex.fields).map(([name, fv]) => {
+      const c = checks[name];
+      const detail = c ? (c.status === 'mismatch'
+          ? `found <b>${c.found ?? '—'}</b> · expected <b>${c.expected ?? '—'}</b>`
+          : c.reason) : (fv.note || '');
+      return `<tr>
+        <td class="mono">${name}</td>
+        <td>${fv.value ?? '<span class="dim">null (unreadable)</span>'}</td>
+        <td><span class="conf ${confClass(fv.confidence)}">${(fv.confidence*100).toFixed(0)}%</span></td>
+        <td class="st ${c?.status||''}">${c?.status || '—'}</td>
+        <td class="dim">${detail}</td></tr>`;
+    }).join('');
+  } else { $('extractionPanel').style.display = 'none'; }
+
+  const steps = (rec.steps || []).filter(s => s.status !== 'skipped_resume' || true);
+  if (steps.length) {
+    $('stepsPanel').style.display = '';
+    $('stepsBody').innerHTML = steps.map(s => `<tr>
+      <td>${s.agent}</td><td class="${s.status==='ok'?'st match':'dim'}">${s.status}</td>
+      <td>${s.attempts}</td><td>${(s.latency_ms/1000).toFixed(1)}s</td>
+      <td class="mono">${s.input_tokens.toLocaleString()} / ${s.output_tokens.toLocaleString()}</td>
+      <td class="mono">${s.cost_usd ? '$'+s.cost_usd.toFixed(4) : '—'}</td></tr>`).join('');
+  } else { $('stepsPanel').style.display = 'none'; }
+}
+
+async function ask() {
+  const q = $('qInput').value.trim(); if (!q) return;
+  $('askBtn').disabled = true; $('answer').innerHTML = '<span class="spin"></span>translating to SQL and querying…';
+  $('sqlDetails').style.display = 'none';
+  try {
+    const r = await api('/api/query', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ question:q }) });
+    $('answer').textContent = r.answer;
+    if (r.sql) {
+      $('sqlDetails').style.display = ''; $('sqlText').textContent = r.sql;
+      $('rowsText').textContent = JSON.stringify(r.rows, null, 1);
+    }
+  } catch (e) { $('answer').textContent = 'error: ' + e.message; }
+  $('askBtn').disabled = false;
+}
+
+loadDocs(); loadRuns();
+</script>
+</body>
+</html>
